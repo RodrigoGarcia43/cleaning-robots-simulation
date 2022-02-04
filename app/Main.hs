@@ -48,7 +48,10 @@ mainLoop max n board = do
             if inp == "abort"
                 then print "Aborting"        
                 else do 
-                    mainLoop max n new_board
+                    let condition = checkForStop new_board
+                    if condition == "continue" then do
+                        mainLoop max n new_board
+                        else print condition
         else do
             let new_n = n + 1
             let b_ = indentedBoard (b updated_board)
@@ -57,7 +60,10 @@ mainLoop max n board = do
             if inp == "abort"
                 then print "Aborting"        
                 else do
-                    mainLoop max new_n updated_board
+                    let condition = checkForStop updated_board
+                    if condition == "continue" then do
+                        mainLoop max new_n updated_board
+                        else print condition
 
 randomGen:: Int -> Int -> IO Int
 randomGen l h = randomRIO (l, h)
@@ -351,7 +357,7 @@ bfs (initial_x, initial_y) stack board result = let
                 (da_x, da_y) = (x,y+1)
                 (le_x,le_y) = (x-1,y)
 
-                new_stack = if (initial_x == x && initial_y == y) || (typ ((board !! x) !! y) == "em" || typ ((board !! x) !! y) == "ec" || typ ((board !! x) !! y) == "ki")
+                new_stack = if (initial_x == x && initial_y == y) || (typ ((board !! x) !! y) == "em" || typ ((board !! x) !! y) == "ec" || typ ((board !! x) !! y) == "di")
                     then tail stack ++ [(n+1, new_path, (up_x, up_y)), (n+1,new_path,(ri_x, ri_y)), (n+1,new_path,(da_x, da_y)), (n+1,new_path,(le_x,le_y))]                            
                     else tail stack
             in
@@ -404,8 +410,15 @@ robotMakeDecision (x,y) ty board =
                                 else nearest_dirt_path !! 1            
 
             "rk" -> let
-                (nearest_corral_distance, nearest_corral_path) = searchForNearest (corrals board) distances (-1, [])
-                in nearest_corral_path !! 1
+                (nearest_corral_distance, nearest_corral_path) = searchForNearestRestricted "ec" (corrals board) distances (b board) (-1, [])
+                (nearest_dirt_distance, nearest_dirt_path) = searchForNearest (dirts board) distances (-1, [])
+                in 
+                    if nearest_corral_distance == (-1) && nearest_dirt_distance == (-1)
+                        then (x,y)
+                        else
+                            if nearest_dirt_distance == -1 ||  (nearest_corral_distance > -1 && nearest_corral_distance < nearest_dirt_distance)
+                                then nearest_corral_path !! 1
+                                else nearest_dirt_path !! 1   
 
             "rd" -> (x,y)
 
@@ -424,7 +437,15 @@ robotMakeDecision (x,y) ty board =
                                 then nearest_kid_path !! 1
                                 else nearest_dirt_path !! 1   
 
-            "ckr" -> (x,y)
+            "ckr" -> let
+                (target_n, (target_x, target_y)) = searchForTargetCorral (x,y) (corrals board) (b board) (8, (-1,-1))
+                (corral_distance, corral_path) = (distances !! target_x) !! target_y
+                
+                in
+                    if corral_distance == -1 || corral_distance == 0
+                        then (x,y)
+                        else corral_path !! 1
+
             "ckrr" ->
                 let 
                     (nearest_kid_distance, nearest_kid_path) = searchForNearest (kids board) distances (-1, [])
@@ -460,7 +481,7 @@ updateTypes (from_x, from_y) (to_x, to_y) board =
             ("ro", "ki") -> (Empty from_x from_y "em", RobotAndKid to_x to_y "rk")
 
             ("cr", "em") -> (EmptyCorral from_x from_y "ec", Robot to_x to_y "ro")
-            ("cr", "ec") -> (EmptyCorral from_x from_y "ec", CorralAndKidAndRobot to_x to_y "cr")
+            ("cr", "ec") -> (EmptyCorral from_x from_y "ec", CorralAndRobot to_x to_y "cr")
             ("cr", "di") -> (EmptyCorral from_x from_y "ec", RobotAndDirt to_x to_y "rd")
             ("cr", "ki") -> (EmptyCorral from_x from_y "ec", RobotAndKid to_x to_y "rk")
 
@@ -493,8 +514,11 @@ updateTypes (from_x, from_y) (to_x, to_y) board =
             in case ty of
                 "ro" -> (Robot from_x from_y "ro", Robot from_x from_y "ro")
                 "rd" -> (Robot from_x from_y "ro", Robot from_x from_y "ro")
+                "cr" -> (CorralAndRobot from_x from_y "cr", CorralAndRobot from_x from_y "cr")
                 "rkd" -> (RobotAndKid from_x from_y "rk", RobotAndKid from_x from_y "rk")
+                "rk" -> (RobotAndKid from_x from_y "rk", RobotAndKid from_x from_y "rk")
                 "ckr" -> (CorralAndKidAndRobotRelease from_x from_y "ckrr", CorralAndKidAndRobotRelease from_x from_y "ckrr")
+                "ckrr" -> (CorralAndKidAndRobotRelease from_x from_y "ckrr", CorralAndKidAndRobotRelease from_x from_y "ckrr")
                 _ -> (Empty from_x from_y "em", Empty from_x from_y "em")
 
 searchForNearest :: [(Int,Int)] -> [[(Int, [(Int,Int)])]] -> (Int, [(Int,Int)])-> (Int, [(Int,Int)])
@@ -507,6 +531,89 @@ searchForNearest ((x,y):targets) distances (n, path) =
         if target_n > (-1) && (target_n < n || n == (-1))
             then searchForNearest targets distances (target_n, target_path)
             else searchForNearest targets distances (n,path)
+
+
+searchForNearestRestricted :: String -> [(Int,Int)] -> [[(Int, [(Int,Int)])]] -> [[BoardObject]] -> (Int, [(Int,Int)])-> (Int, [(Int,Int)])
+searchForNearestRestricted _ [] _ _ result = result
+searchForNearestRestricted ty ((x,y):targets) distances board (n, path) = 
+    let
+        (target_n, target_path) = (distances !! x) !! y
+        target_ty = typ ((board !! x) !! y)
+    
+    in
+        if target_n > (-1) && (target_n < n || n == (-1)) && ty == target_ty
+            then searchForNearestRestricted ty targets distances board (target_n, target_path)
+            else searchForNearestRestricted ty targets distances board (n,path)
+
+
+searchForTargetCorral :: (Int,Int) -> [(Int,Int)] -> [[BoardObject]] -> (Int, (Int,Int)) -> (Int, (Int, Int))
+searchForTargetCorral _ [] _ result = result
+searchForTargetCorral (actual_x, actual_y) ((x,y):rest) board (best, result) = let
+    n1 = if (x-1) > 0 && (x-1) < length (head board) && y > 0 && y < length board && 
+        typ ((board !! (x-1)) !! y) /= "ck" && typ ((board !! (x-1)) !! y) /= "ob"
+        then 1
+        else 0
+    
+    n2 = if (x+1) > 0 && (x+1) < length (head board) && y > 0 && y < length board && 
+        typ ((board !! (x+1)) !! y) /= "ck" && typ ((board !! (x+1)) !! y) /= "ob"
+        then 1
+        else 0
+
+    n3 = if x > 0 && x < length (head board) && (y+1) > 0 && (y+1) < length board && 
+        typ ((board !! x) !! (y+1)) /= "ck" && typ ((board !! x) !! (y+1)) /= "ob"
+        then 1
+        else 0
+
+    n4 = if x > 0 && x < length (head board) && (y-1) > 0 && (y-1) < length board && 
+        typ ((board !! x) !! (y-1)) /= "ck" && typ ((board !! x) !! (y-1)) /= "ob"
+        then 1
+        else 0
+
+    n5 = if (x+1) > 0 && (x+1) < length (head board) && (y+1) > 0 && (y+1) < length board && 
+        typ ((board !! (x+1)) !! (y+1)) /= "ck" && typ ((board !! (x+1)) !! (y+1)) /= "ob"
+        then 1
+        else 0
+
+    n6 = if (x+1) > 0 && (x+1) < length (head board) && (y-1) > 0 && (y-1) < length board &&
+        typ ((board !! (x+1)) !! (y-1)) /= "ck" && typ ((board !! (x+1)) !! (y-1)) /= "ob"
+        then 1
+        else 0
+
+    n7 = if (x-1) > 0 && (x-1) < length (head board) && (y+1) > 0 && (y+1) < length board && 
+        typ ((board !! (x-1)) !! (y+1)) /= "ck" && typ ((board !! (x-1)) !! (y+1)) /= "ob"
+        then 1
+        else 0
+
+    n8 = if (x-1) > 0 && (x-1) < length (head board) && (y-1) > 0 && (y-1) < length board && 
+        typ ((board !! (x-1)) !! (y-1)) /= "ck" && typ ((board !! (x-1)) !! (y-1)) /= "ob"
+        then 1
+        else 0
+    
+    n = n1+n2+n3+n4+n5+n6+n7+n8
+
+    in
+        if (typ ((board !! x) !! y) == "ec" || (x,y) == (actual_x,actual_y)) && n <= best
+            then searchForTargetCorral (actual_x,actual_y) rest board (n, (x,y))
+            else searchForTargetCorral (actual_x,actual_y) rest board (best, result)
+
+
+checkForStop :: Board -> String
+checkForStop board = let
+    dirt_condition = fromIntegral (h board * w board) *  60 /  100
+    empty_corrals = checkEmptyCorrals (corrals board) (b board) 0
+    in
+        if dirt_condition <= fromIntegral (length (dirts board))
+            then "Dirt reached 60% of board"
+            else if empty_corrals == 0
+                then "All clean"
+                else "continue"
+    
+checkEmptyCorrals :: [(Int,Int)] -> [[BoardObject]] -> Int -> Int
+checkEmptyCorrals [] _ n = n
+checkEmptyCorrals ((x,y):rest) board n = 
+    if typ ((board !! x) !! y) /= "ck" && typ ((board !! x) !! y) /= "ckrr"
+        then checkEmptyCorrals rest board (n+1)
+        else checkEmptyCorrals rest board n
 
 
 data Board = Board {b :: [[BoardObject]], w :: Int, h :: Int,
