@@ -398,8 +398,8 @@ robotMakeDecision (x,y) ty board =
         (to_x, to_y) = case ty of
             "ro" ->
                 let 
-                    (nearest_kid_distance, nearest_kid_path) = searchForNearest (kids board) distances (-1, [])
-                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearest (dirts board) distances (-1, [])
+                    (nearest_kid_distance, nearest_kid_path) = searchForNearestRestricted "ki" (kids board) distances (b board) (-1, [])
+                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
 
                 in 
                     if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
@@ -411,14 +411,14 @@ robotMakeDecision (x,y) ty board =
 
             "rk" -> let
                 (nearest_corral_distance, nearest_corral_path) = searchForNearestRestricted "ec" (corrals board) distances (b board) (-1, [])
-                (nearest_dirt_distance, nearest_dirt_path) = searchForNearest (dirts board) distances (-1, [])
+                (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
                 in 
                     if nearest_corral_distance == (-1) && nearest_dirt_distance == (-1)
                         then (x,y)
                         else
                             if nearest_dirt_distance == -1 ||  (nearest_corral_distance > -1 && nearest_corral_distance < nearest_dirt_distance)
-                                then nearest_corral_path !! 1
-                                else nearest_dirt_path !! 1   
+                                then if length nearest_corral_path > 2 then nearest_corral_path !! 2 else nearest_corral_path !! 1
+                                else if length nearest_dirt_path > 2 then nearest_dirt_path !! 2 else nearest_dirt_path !! 1  
 
             "rd" -> (x,y)
 
@@ -426,16 +426,16 @@ robotMakeDecision (x,y) ty board =
 
             "cr" ->
                 let 
-                    (nearest_kid_distance, nearest_kid_path) = searchForNearest (kids board) distances (-1, [])
-                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearest (dirts board) distances (-1, [])
+                    (nearest_kid_distance, nearest_kid_path) = searchForNearestRestricted "ki" (kids board) distances (b board) (-1, [])
+                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
 
                 in 
                     if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
                         then (x,y)
                         else
-                            if nearest_dirt_distance == -1 ||  (nearest_kid_distance > -1 && nearest_kid_distance < nearest_kid_distance + 2)
+                            if nearest_dirt_distance == -1 ||  (nearest_kid_distance > -1 && nearest_kid_distance < nearest_dirt_distance)
                                 then nearest_kid_path !! 1
-                                else nearest_dirt_path !! 1   
+                                else nearest_dirt_path !! 1    
 
             "ckr" -> let
                 (target_n, (target_x, target_y)) = searchForTargetCorral (x,y) (corrals board) (b board) (8, (-1,-1))
@@ -444,20 +444,20 @@ robotMakeDecision (x,y) ty board =
                 in
                     if corral_distance == -1 || corral_distance == 0
                         then (x,y)
-                        else corral_path !! 1
+                        else if length corral_path > 2 then corral_path !! 2 else corral_path !! 1
 
             "ckrr" ->
                 let 
-                    (nearest_kid_distance, nearest_kid_path) = searchForNearest (kids board) distances (-1, [])
-                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearest (dirts board) distances (-1, [])
+                    (nearest_kid_distance, nearest_kid_path) = searchForNearestRestricted "ki" (kids board) distances (b board) (-1, [])
+                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
 
                 in 
                     if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
                         then (x,y)
                         else
-                            if nearest_dirt_distance == -1 ||  (nearest_kid_distance > -1 && nearest_kid_distance < nearest_kid_distance + 2)
-                                then nearest_kid_path !! 1
-                                else nearest_dirt_path !! 1   
+                            if nearest_dirt_distance == -1 ||  (nearest_kid_distance > -1 && nearest_kid_distance < nearest_dirt_distance)
+                                then if length nearest_kid_path > 2 then nearest_kid_path !! 2 else nearest_kid_path !! 1
+                                else if length nearest_dirt_path > 2 then nearest_dirt_path !! 2 else nearest_dirt_path !! 1     
             _ -> (x,y)
 
         (from_object, to_object) = updateTypes (x,y) (to_x, to_y) (b board)
@@ -600,11 +600,11 @@ searchForTargetCorral (actual_x, actual_y) ((x,y):rest) board (best, result) = l
 checkForStop :: Board -> String
 checkForStop board = let
     dirt_condition = fromIntegral (h board * w board) *  60 /  100
-    empty_corrals = checkEmptyCorrals (corrals board) (b board) 0
+    
     in
         if dirt_condition <= fromIntegral (length (dirts board))
             then "Dirt reached 60% of board"
-            else if empty_corrals == 0
+            else if null (kids board) && null (dirts board)
                 then "All clean"
                 else "continue"
     
@@ -732,6 +732,21 @@ selectInitialBoard n
     kids = [(2,4), (4,1), (6,0), (6,1), (5,4), (6,0)],
     corrals = [(0,0), (1,0), (2,0), (0,1), (1,1), (2,1)],
     robots = [(6,6)],
+    dirts = [(4,2), (5,2), (3,1)]
+    }
+                    | n == 4 = return Board {b = [
+    [EmptyCorral 0 0 "ec",  EmptyCorral 0 1 "ec", Empty 0 2 "em", Empty 0 3 "em",    Empty 0 4 "em",    Empty 0 5 "em",      Kid 0 6 "ki"],
+    [EmptyCorral 1 0 "ec",  EmptyCorral 1 1 "ec", Empty 1 2 "em", Obstacle 1 3 "ob", Obstacle 1 4 "ob", Obstacle 1 5 "ob", Empty 1 6 "em"],
+    [EmptyCorral 2 0 "ec",  EmptyCorral 2 1 "ec", Empty 2 2 "em", Empty 2 3 "em",    Kid 2 4 "ki",      Empty 2 5 "em",    Empty 2 6 "em"],
+    [Empty 3 0 "em",               Dirt 3 1 "di", Empty 3 2 "em", Empty 3 3 "em",    Empty 3 4 "em",    Empty 3 5 "em",    Empty 3 6 "em"],
+    [Empty 4 0 "em",                Kid 4 1 "ki",  Dirt 4 2 "di", Empty 4 3 "em",    Empty 4 4 "em",    Empty 4 5 "em",    Empty 4 6 "em"],
+    [Empty 5 0 "em",              Empty 5 1 "em",  Dirt 5 2 "di", Empty 5 3 "em",      Kid 5 4 "ki",    Empty 5 5 "em",    Empty 5 6 "em"],
+    [Kid 6 0 "ki",                  Kid 6 1 "ki", Robot 6 2 "ro", Obstacle 6 3 "ob", Empty 6 4 "em",    Empty 6 5 "em",    Robot 6 6 "ro"]
+    ], w =7, h = 7,
+    obstacles = [(1,3), (1,4), (1,5), (6,3)],
+    kids = [(2,4), (4,1), (6,0), (6,1), (5,4), (6,0)],
+    corrals = [(0,0), (1,0), (2,0), (0,1), (1,1), (2,1)],
+    robots = [(6,6), (6,2)],
     dirts = [(4,2), (5,2), (3,1)]
     }
 
