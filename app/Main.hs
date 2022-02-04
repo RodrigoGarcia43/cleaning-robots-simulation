@@ -9,7 +9,7 @@ main = do
     print "insert index of initial board"
     b_ <- getLine
     let b = read b_ :: Int
-    print "insert number off iterations to shuffle"
+    print "insert number of iterations to chagne enviroment"
     n_ <- getLine
     let n = read n_ :: Int
     putStr "\n\n"
@@ -32,15 +32,7 @@ mainLoop max n board = do
 
             let obstacles = inspectBoard (w updated_board -1) (h updated_board -1) "on" new_b []
 
-            let robots = inspectBoard (w updated_board -1) (h updated_board -1) "ro" new_b [] ++
-                        inspectBoard (w updated_board -1) (h updated_board -1) "rd" new_b [] ++
-                        inspectBoard (w updated_board -1) (h updated_board -1) "rk" new_b [] ++
-                        inspectBoard (w updated_board -1) (h updated_board -1) "rkd" new_b [] ++
-                        inspectBoard (w updated_board -1) (h updated_board -1) "cr" new_b [] ++
-                        inspectBoard (w updated_board -1) (h updated_board -1) "ckr" new_b [] ++
-                        inspectBoard (w updated_board -1) (h updated_board -1) "ckrr" new_b []
-
-            let new_board = Board {b=new_b, corrals=corrals updated_board, kids=new_kids,robots=robots, dirts=dirts, obstacles=obstacles, w=w updated_board, h=h updated_board}
+            let new_board = Board {b=new_b, corrals=corrals updated_board, kids=new_kids,robots=robots updated_board, dirts=dirts, obstacles=obstacles, w=w updated_board, h=h updated_board}
             let b_ = indentedBoard (b new_board)
             print info
             putStr b_ 
@@ -68,6 +60,7 @@ mainLoop max n board = do
 randomGen:: Int -> Int -> IO Int
 randomGen l h = randomRIO (l, h)
 
+-- Tis function generates a random Int with value -1, 0 or 1
 randomGen1 :: IO Int
 randomGen1 = do
     x <- randomGen 0 2
@@ -77,117 +70,6 @@ randomGen1 = do
         2 -> return (-1)
             
 
-fillEmpty :: Int -> Int -> [[BoardObject]] -> [[BoardObject]]
-fillEmpty _ (-1) board = board
-fillEmpty w h board = fillEmpty w (h-1) (fillEmptyRow w h [] : board)
-
-fillEmptyRow :: Int -> Int -> [BoardObject] -> [BoardObject]
-fillEmptyRow (-1) _ board = board
-fillEmptyRow w h board = fillEmptyRow (w-1) h (Empty h w "em": board)
-
-fillKids :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
-fillKids 0 _ _ board kids = return (board, kids)
-fillKids n w h board kids = do
-    x <- randomGen 0 w
-    y <- randomGen 0 h
-    let board_object = (board !! x) !! y
-    let ty = typ board_object
-    if ty /= "em"
-        then fillKids n w h board kids
-        else do
-            let new_kids = (x, y):kids
-
-            let new_board = replaceAtPosition x y (Kid x y "ki") board
-            fillKids (n-1) w h new_board new_kids
-                
-
-fillRobots :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
-fillRobots 0 _ _ board robots = return (board, robots)
-fillRobots n w h board robots = do
-    x <- randomGen 0 w
-    y <- randomGen 0 h
-    let board_object = (board !! x) !! y
-    let ty = typ board_object
-    if ty /= "em" 
-        then fillRobots n w h board robots
-        else do
-            let new_robots = (x, y):robots           
-            let new_board = replaceAtPosition x y (Robot x y "ro") board
-            fillRobots (n-1) w h new_board new_robots
-
-fillObstacles :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
-fillObstacles 0 _ _ board obstacles = return (board, obstacles)
-fillObstacles n w h board obstacles = do
-    x <- randomGen 0 w
-    y <- randomGen 0 h
-    let board_object = (board !! x) !! y
-    let ty = typ board_object
-    if ty /= "em" 
-        then fillObstacles n w h board obstacles
-        else do
-            let new_obstacles = (x, y):obstacles           
-            let new_board = replaceAtPosition x y (Obstacle x y "ob") board
-            fillObstacles (n-1) w h new_board new_obstacles
-
-fillDirts :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
-fillDirts 0 _ _ board dirts = return (board, dirts)
-fillDirts n w h board dirts = do
-    x <- randomGen 0 w
-    y <- randomGen 0 h
-    let board_object = (board !! x) !! y
-    let ty = typ board_object
-    if ty /= "em" 
-        then fillDirts n w h board dirts
-        else do
-            let new_dirts = (x, y):dirts            
-            let new_board = replaceAtPosition x y (Dirt x y "di") board
-            fillDirts (n-1) w h new_board new_dirts
-
-fillCorrals :: Int -> Int -> Int -> [[BoardObject]] -> IO [[BoardObject]]
-fillCorrals 0 _ _ board = return board
-fillCorrals n w h board = do
-    x <- randomGen 0 w
-    y <- randomGen 0 h
-    let new_board = replaceAtPosition x y (EmptyCorral x y "ec") board
-    let (result, _) = fillCorralsAround (n-1) x y w h new_board
-    return result        
-
-fillCorralsAround :: Int -> Int -> Int -> Int -> Int -> [[BoardObject]] -> ([[BoardObject]], Int)
-fillCorralsAround 0 _ _ _ _ board = (board, 0)
-fillCorralsAround n x y w h board = let    
-    up_board_object = if y - 1 >= 0 then (board !! x) !! (y - 1) else Empty 0 0 "null"
-    up_ty = if y - 1 >= 0 then typ up_board_object else "null"
-
-    ri_board_object = if x + 1 <= w then (board !! (x + 1)) !! y else Empty 0 0 "null"
-    ri_ty = if x+ 1 <= w then typ ri_board_object else "null"
-
-    da_board_object = if y + 1 <= h then (board !! x) !! (y + 1) else Empty 0 0 "null"
-    da_ty = if y + 1 <= h then typ da_board_object else "null"
-
-    le_board_object = if x - 1 >= 0 then (board !! (x - 1)) !! y else Empty 0 0 "null"
-    le_ty = if x - 1 >= 0 then typ le_board_object else "null"
-
-    new_board_1 = if up_ty == "em" && n > 0 then replaceAtPosition x (y-1) (EmptyCorral x (y-1) "ec") board else board
-    new_n_1 = if up_ty == "em" && n > 0 then n-1 else n
-
-    new_board_2 = if ri_ty == "em" && new_n_1 > 0 then replaceAtPosition (x+1) y (EmptyCorral (x+1) y "ec") new_board_1 else new_board_1
-    new_n_2 = if ri_ty == "em" && new_n_1 > 0 then new_n_1-1 else new_n_1
-
-    new_board_3 = if da_ty == "em" && new_n_2 > 0 then replaceAtPosition x (y+1) (EmptyCorral x (y+1) "ec") new_board_2 else new_board_2
-    new_n_3 = if da_ty == "em" && new_n_2 > 0 then new_n_2-1 else new_n_2
-
-    new_board_4 = if le_ty == "em" && new_n_3 > 0 then replaceAtPosition (x-1) y (EmptyCorral (x-1) y "ec") new_board_3 else new_board_3
-    new_n_4 = if le_ty == "em" && new_n_3 > 0 then new_n_3-1 else new_n_3
-
-    (new_board_5, new_n_5) = if new_n_4 > 0 && up_ty == "em" then fillCorralsAround new_n_4 x (y-1) w h new_board_4 else (new_board_4, new_n_4)
-
-    (new_board_6, new_n_6) = if new_n_5 > 0 && ri_ty == "em" then fillCorralsAround new_n_5 (x+1) y w h new_board_5 else (new_board_5, new_n_5)
-
-    (new_board_7, new_n_7) = if new_n_6 > 0 && da_ty == "em" then fillCorralsAround new_n_6 x (y+1) w h new_board_6 else (new_board_6, new_n_6)
-
-    (new_board_8, new_n_8) = if new_n_7 > 0 && le_ty == "em" then fillCorralsAround new_n_7 (x-1) y w h new_board_7 else (new_board_7, new_n_7)
-
-    in (new_board_8, new_n_8)
 
 replaceAtPosition :: Int -> Int -> a -> [[a]] -> [[a]]
 replaceAtPosition x y board_object board = let
@@ -196,6 +78,10 @@ replaceAtPosition x y board_object board = let
     new_y = x2 ++ board_object: ys2
     result = x1 ++ new_y : ys1
     in result
+
+
+-- ===========================================================================================================
+-- This section contains the methods made to move the kids and his consecuences 
 
 moveKids :: [(Int, Int)] -> [[BoardObject]] -> [(Int, Int)] -> [String] -> IO ([[BoardObject]], [(Int, Int)], [String])
 moveKids [] board kids messages= return (board, kids, messages)
@@ -338,31 +224,10 @@ inspectRow x y t row matches =
             then inspectRow x (y-1) t row ((x,y):matches)
             else inspectRow x (y-1) t row matches
 
+-- ===========================================================================================================
 
-bfs :: (Int, Int) -> [(Int, [(Int,Int)], (Int,Int))] -> [[BoardObject]] -> [[(Int, [(Int,Int)])]] -> [[(Int, [(Int,Int)])]]
-bfs _ [] _ result = result
-bfs (initial_x, initial_y) stack board result = let
-    (n,path,(x,y)) = head stack
-    in
-    if  x >= 0 && x < length (head board) 
-        && y >= 0 && y < length board && 
-        (fst ((result !! x) !! y) == -1)
-        then
-            let
-                new_path = path ++ [(x,y)] 
-                new_result = replaceAtPosition x y (n, new_path) result
-
-                (up_x, up_y) = (x,y-1)
-                (ri_x, ri_y) = (x+1,y)
-                (da_x, da_y) = (x,y+1)
-                (le_x,le_y) = (x-1,y)
-
-                new_stack = if (initial_x == x && initial_y == y) || (typ ((board !! x) !! y) == "em" || typ ((board !! x) !! y) == "ec" || typ ((board !! x) !! y) == "di")
-                    then tail stack ++ [(n+1, new_path, (up_x, up_y)), (n+1,new_path,(ri_x, ri_y)), (n+1,new_path,(da_x, da_y)), (n+1,new_path,(le_x,le_y))]                            
-                    else tail stack
-            in
-                bfs (initial_x, initial_y) new_stack board new_result
-        else bfs (initial_x, initial_y) (tail stack) board result
+-- ===========================================================================================================
+-- In this section are the functions made to move the agents
     
 moveRobots :: [(Int, Int)] -> Board -> Board
 moveRobots [] board = board
@@ -405,7 +270,7 @@ robotMakeDecision (x,y) ty board =
                     if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
                         then (x,y)
                         else
-                            if nearest_dirt_distance == -1 ||  (nearest_kid_distance > -1 && nearest_kid_distance < nearest_kid_distance + 2)
+                            if nearest_dirt_distance == -1 ||  (nearest_kid_distance > -1 && nearest_kid_distance < nearest_dirt_distance + 2)
                                 then nearest_kid_path !! 1
                                 else nearest_dirt_path !! 1            
 
@@ -615,6 +480,47 @@ checkEmptyCorrals ((x,y):rest) board n =
         then checkEmptyCorrals rest board (n+1)
         else checkEmptyCorrals rest board n
 
+-- ===========================================================================================================
+
+-- ===========================================================================================================
+-- BFS section
+
+bfs :: (Int, Int) -> [(Int, [(Int,Int)], (Int,Int))] -> [[BoardObject]] -> [[(Int, [(Int,Int)])]] -> [[(Int, [(Int,Int)])]]
+bfs _ [] _ result = result
+bfs (initial_x, initial_y) stack board result = let
+    (n,path,(x,y)) = head stack
+    in
+    if  x >= 0 && x < length (head board) 
+        && y >= 0 && y < length board && 
+        (fst ((result !! x) !! y) == -1)
+        then
+            let
+                new_path = path ++ [(x,y)] 
+                new_result = replaceAtPosition x y (n, new_path) result
+
+                (up_x, up_y) = (x,y-1)
+                (ri_x, ri_y) = (x+1,y)
+                (da_x, da_y) = (x,y+1)
+                (le_x,le_y) = (x-1,y)
+
+                new_stack = if (initial_x == x && initial_y == y) || (typ ((board !! x) !! y) == "em" || typ ((board !! x) !! y) == "ec" || typ ((board !! x) !! y) == "di")
+                    then tail stack ++ [(n+1, new_path, (up_x, up_y)), (n+1,new_path,(ri_x, ri_y)), (n+1,new_path,(da_x, da_y)), (n+1,new_path,(le_x,le_y))]                            
+                    else tail stack
+            in
+                bfs (initial_x, initial_y) new_stack board new_result
+        else bfs (initial_x, initial_y) (tail stack) board result
+
+indentedBfs :: [[(Int,[(Int,Int)])]] -> String
+indentedBfs = foldr ((++) . indentedBfsRow) "\n"
+
+indentedBfsRow :: [(Int,[(Int,Int)])] -> String
+indentedBfsRow [] = "\n"
+indentedBfsRow ((x,way):row) = show x ++ concat (replicate (14 - length (show x)) " ") ++ indentedBfsRow row
+
+-- =================================================================================================
+
+-- =================================================================================================
+-- In this section are created the Board and BoardObject types
 
 data Board = Board {b :: [[BoardObject]], w :: Int, h :: Int,
                     obstacles :: [(Int,Int)],
@@ -648,12 +554,7 @@ indentedRow :: [BoardObject] -> String
 indentedRow [] = "\n"
 indentedRow (x:row) = show x ++ concat (replicate (14 - length (show x)) " ") ++ indentedRow row
 
-indentedBfs :: [[(Int,[(Int,Int)])]] -> String
-indentedBfs = foldr ((++) . indentedBfsRow) "\n"
 
-indentedBfsRow :: [(Int,[(Int,Int)])] -> String
-indentedBfsRow [] = "\n"
-indentedBfsRow ((x,way):row) = show x ++ concat (replicate (14 - length (show x)) " ") ++ indentedBfsRow row
 
 instance Show BoardObject where
     show (Empty x y t) = "Empty"
@@ -670,10 +571,14 @@ instance Show BoardObject where
     show (RobotAndKid x y t) = "[--R+K--]"
     show (RobotAndKidAndDirt x y t) = "[--~~R+K+D--~~]"
 
+-- ===========================================================================================================
+
+-- ===========================================================================================================
+-- Board generation section
 
 selectInitialBoard :: Int -> IO Board
 selectInitialBoard n 
-                    | n <= 0 = do
+                    | n <= 0 = do -- generate a random board (8x8)
     let new_board = fillEmpty 8 8 [[]]
     new_board_1 <- fillCorrals 8 8 8 new_board
     let corrals = inspectBoard 8 8 "ec" new_board_1 []
@@ -693,7 +598,7 @@ selectInitialBoard n
     [EmptyCorral 1 0 "ec", CorralAndKid 1 1 "ec", Empty 1 2 "em", Obstacle 1 3 "ob",    Empty 1 4 "em", Empty 1 5 "em", Empty 1 6 "em"],
     [EmptyCorral 2 0 "ec",  EmptyCorral 2 1 "ec", Empty 2 2 "em",    Empty 2 3 "em",    Empty 2 4 "em", Empty 2 5 "em", Empty 2 6 "em"],
     [Empty 3 0 "em",               Dirt 3 1 "di", Empty 3 2 "em",      Kid 3 3 "ki",      Kid 3 4 "ki", Empty 3 5 "em", Empty 3 6 "em"],
-    [Empty 4 0 "em",              Kid 4 1 "ki",  Dirt 4 2 "di",    Empty 4 3 "em",    Empty 4 4 "em",   Kid 4 5 "ki", Empty 4 6 "em"],
+    [Empty 4 0 "em",                Kid 4 1 "ki",  Dirt 4 2 "di",    Empty 4 3 "em",    Empty 4 4 "em",   Kid 4 5 "ki", Empty 4 6 "em"],
     [Empty 5 0 "em",              Empty 5 1 "em",  Dirt 5 2 "di",    Empty 5 3 "em",    Empty 5 4 "em",   Kid 5 5 "ki", Empty 5 6 "em"],
     [Empty 6 0 "em",              Empty 6 1 "em", Empty 6 2 "em", Obstacle 6 3 "ob", Obstacle 6 4 "ob", Empty 6 5 "em", Robot 6 6 "ro"]
     ], w =7, h = 7,
@@ -750,7 +655,8 @@ selectInitialBoard n
     dirts = [(4,2), (5,2), (3,1)]
     }
 
-                    | otherwise = return Board {b = [
+                    | otherwise = -- generates an empty board
+                        return Board {b = [
     [Empty 0 0 "em", Empty 0 1 "em", Empty 0 2 "em", Empty 0 3 "em", Empty 0 4 "em", Empty 0 5 "em", Empty 0 6 "em"],
     [Empty 1 0 "em", Empty 1 1 "em", Empty 1 2 "em", Empty 1 3 "em", Empty 1 4 "em", Empty 1 5 "em", Empty 1 6 "em"],
     [Empty 2 0 "em", Empty 2 1 "em", Empty 2 2 "em", Empty 2 3 "em", Empty 2 4 "em", Empty 2 5 "em", Empty 2 6 "em"],
@@ -765,3 +671,120 @@ selectInitialBoard n
     robots = [],
     dirts = []
     }
+
+
+-- These functions are used for generating the random board 
+
+fillEmpty :: Int -> Int -> [[BoardObject]] -> [[BoardObject]]
+fillEmpty _ (-1) board = board
+fillEmpty w h board = fillEmpty w (h-1) (fillEmptyRow w h [] : board)
+
+fillEmptyRow :: Int -> Int -> [BoardObject] -> [BoardObject]
+fillEmptyRow (-1) _ board = board
+fillEmptyRow w h board = fillEmptyRow (w-1) h (Empty h w "em": board)
+
+fillKids :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
+fillKids 0 _ _ board kids = return (board, kids)
+fillKids n w h board kids = do
+    x <- randomGen 0 w
+    y <- randomGen 0 h
+    let board_object = (board !! x) !! y
+    let ty = typ board_object
+    if ty /= "em"
+        then fillKids n w h board kids
+        else do
+            let new_kids = (x, y):kids
+
+            let new_board = replaceAtPosition x y (Kid x y "ki") board
+            fillKids (n-1) w h new_board new_kids
+                
+
+fillRobots :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
+fillRobots 0 _ _ board robots = return (board, robots)
+fillRobots n w h board robots = do
+    x <- randomGen 0 w
+    y <- randomGen 0 h
+    let board_object = (board !! x) !! y
+    let ty = typ board_object
+    if ty /= "em" 
+        then fillRobots n w h board robots
+        else do
+            let new_robots = (x, y):robots           
+            let new_board = replaceAtPosition x y (Robot x y "ro") board
+            fillRobots (n-1) w h new_board new_robots
+
+fillObstacles :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
+fillObstacles 0 _ _ board obstacles = return (board, obstacles)
+fillObstacles n w h board obstacles = do
+    x <- randomGen 0 w
+    y <- randomGen 0 h
+    let board_object = (board !! x) !! y
+    let ty = typ board_object
+    if ty /= "em" 
+        then fillObstacles n w h board obstacles
+        else do
+            let new_obstacles = (x, y):obstacles           
+            let new_board = replaceAtPosition x y (Obstacle x y "ob") board
+            fillObstacles (n-1) w h new_board new_obstacles
+
+fillDirts :: Int -> Int -> Int -> [[BoardObject]] -> [(Int, Int)]-> IO ([[BoardObject]], [(Int, Int)])
+fillDirts 0 _ _ board dirts = return (board, dirts)
+fillDirts n w h board dirts = do
+    x <- randomGen 0 w
+    y <- randomGen 0 h
+    let board_object = (board !! x) !! y
+    let ty = typ board_object
+    if ty /= "em" 
+        then fillDirts n w h board dirts
+        else do
+            let new_dirts = (x, y):dirts            
+            let new_board = replaceAtPosition x y (Dirt x y "di") board
+            fillDirts (n-1) w h new_board new_dirts
+
+fillCorrals :: Int -> Int -> Int -> [[BoardObject]] -> IO [[BoardObject]]
+fillCorrals 0 _ _ board = return board
+fillCorrals n w h board = do
+    x <- randomGen 0 w
+    y <- randomGen 0 h
+    let new_board = replaceAtPosition x y (EmptyCorral x y "ec") board
+    let (result, _) = fillCorralsAround (n-1) x y w h new_board
+    return result        
+
+fillCorralsAround :: Int -> Int -> Int -> Int -> Int -> [[BoardObject]] -> ([[BoardObject]], Int)
+fillCorralsAround 0 _ _ _ _ board = (board, 0)
+fillCorralsAround n x y w h board = let    
+    up_board_object = if y - 1 >= 0 then (board !! x) !! (y - 1) else Empty 0 0 "null"
+    up_ty = if y - 1 >= 0 then typ up_board_object else "null"
+
+    ri_board_object = if x + 1 <= w then (board !! (x + 1)) !! y else Empty 0 0 "null"
+    ri_ty = if x+ 1 <= w then typ ri_board_object else "null"
+
+    da_board_object = if y + 1 <= h then (board !! x) !! (y + 1) else Empty 0 0 "null"
+    da_ty = if y + 1 <= h then typ da_board_object else "null"
+
+    le_board_object = if x - 1 >= 0 then (board !! (x - 1)) !! y else Empty 0 0 "null"
+    le_ty = if x - 1 >= 0 then typ le_board_object else "null"
+
+    new_board_1 = if up_ty == "em" && n > 0 then replaceAtPosition x (y-1) (EmptyCorral x (y-1) "ec") board else board
+    new_n_1 = if up_ty == "em" && n > 0 then n-1 else n
+
+    new_board_2 = if ri_ty == "em" && new_n_1 > 0 then replaceAtPosition (x+1) y (EmptyCorral (x+1) y "ec") new_board_1 else new_board_1
+    new_n_2 = if ri_ty == "em" && new_n_1 > 0 then new_n_1-1 else new_n_1
+
+    new_board_3 = if da_ty == "em" && new_n_2 > 0 then replaceAtPosition x (y+1) (EmptyCorral x (y+1) "ec") new_board_2 else new_board_2
+    new_n_3 = if da_ty == "em" && new_n_2 > 0 then new_n_2-1 else new_n_2
+
+    new_board_4 = if le_ty == "em" && new_n_3 > 0 then replaceAtPosition (x-1) y (EmptyCorral (x-1) y "ec") new_board_3 else new_board_3
+    new_n_4 = if le_ty == "em" && new_n_3 > 0 then new_n_3-1 else new_n_3
+
+    (new_board_5, new_n_5) = if new_n_4 > 0 && up_ty == "em" then fillCorralsAround new_n_4 x (y-1) w h new_board_4 else (new_board_4, new_n_4)
+
+    (new_board_6, new_n_6) = if new_n_5 > 0 && ri_ty == "em" then fillCorralsAround new_n_5 (x+1) y w h new_board_5 else (new_board_5, new_n_5)
+
+    (new_board_7, new_n_7) = if new_n_6 > 0 && da_ty == "em" then fillCorralsAround new_n_6 x (y+1) w h new_board_6 else (new_board_6, new_n_6)
+
+    (new_board_8, new_n_8) = if new_n_7 > 0 && le_ty == "em" then fillCorralsAround new_n_7 (x-1) y w h new_board_7 else (new_board_7, new_n_7)
+
+    in (new_board_8, new_n_8)
+
+    -- =====================================================================================================================
