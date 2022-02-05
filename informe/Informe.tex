@@ -58,7 +58,9 @@
 \vspace*{\fill}
 \vspace*{0.5cm}
 \huge\bfseries
-Cleaning Robots Simulation\\
+Proyecto de Simulación y Programación
+Declarativa\\
+Agentes\\
 \vspace*{0.5cm}
 \large Rodrigo García Gómez CC-412
 \vspace*{\fill}
@@ -84,11 +86,13 @@ Es el encargado de limpiar y controlar a los niños. El robot decide en cada mom
 El Objetivo del robot es mantener la casa limpia. La casa se considera limpia si menos del 60 porciento de las casillas vacías están ocupadas por suciedad.
 
 \section*{Instrucciones de uso}
-Para ejecutar el proyecto debe importar el script $main.hs$ ubicado dentro de $/app$. Luego se llama a la función \code{main}.
+Para ejecutar el proyecto desde $ghci$ debe importar el script $main.hs$ ubicado dentro de $/app$. Luego se llama a la función \code{main}.
 
 \begin{lstlisting}
 *Main Lib Paths_agents> main
 \end{lstlisting}
+
+Igualmente se puede teclear el comando \code{Stack run} en la consola estando parado en la raíz del proyecto (si tiene instalado Stack).\\
 
 A continuación se pedirá al usuario dos entradas. Primero un número entero que se utiliza para seleccionar el tablero. El
 número 0 generará un tablero aleatorio de tamaño 8x8. Los números 1-4 se utilizan para seleccionar uno de los tableros perdefinidos en el cuerpo de la función: \code{selectInitialBoard :: Int -> IO Board}. Cualquier número mayor que 4 ingresado generará un tablero completamente vacío.\\
@@ -134,8 +138,75 @@ Para detener la simulación, antes de presionar "enter" durante cualquier turno 
 
 
 \section*{Detalles de implementación}
-El ciclo principal se ejecuta en la función \code{mainLoop :: Int -> Int -> Board -> IO ()}. En cada iteración se realiza primero las acciones de los agentes mediante la función \code{moveRobots :: [(Int, Int)] -> Board -> Board} que recibe
+El tipo tablero está constituido de la siguiente forma 
 
+\begin{lstlisting}
+data Board = Board {b :: [[BoardObject]], w :: Int, h :: Int,
+                    obstacles :: [(Int,Int)],
+                    kids :: [(Int,Int)],
+                    corrals :: [(Int, Int)],
+                    robots :: [(Int,Int)],
+                    dirts :: [(Int,Int)]
+                    } deriving (Show)
+\end{lstlisting}
+
+A la matriz retornada por \code{b} se le asocian las casillas. Cada una estará formada por un \code{BoardObject} (Los \code{BoardObject} se explicarán más adelante). Además se tiene en \code{w} y \code{h} las dimensiones del tablero y en \code{obstacles, kids, corrals, robots y dirts}, unas listas de tuplas con las correspondientes coordenadas $x,y$ para cada elemento.
+
+\begin{lstlisting}
+data BoardObject = Empty {x :: Int, y :: Int, typ :: String}  -- em
+                | Obstacle {x :: Int, y :: Int, typ :: String}  -- ob
+                | Dirt {x :: Int, y :: Int, typ :: String} -- di
+                | EmptyCorral {x :: Int, y :: Int, typ :: String}  -- ec
+                | CorralAndKid {x :: Int, y :: Int, typ :: String} -- ck
+                | CorralAndKidAndRobot {x :: Int, y :: Int, typ :: String} -- ckr
+                | CorralAndRobot {x :: Int, y :: Int, typ :: String} -- cr
+                | Kid {x :: Int, y :: Int, typ :: String}  -- ki
+                | Robot {x :: Int, y :: Int, typ :: String}  -- ro
+                | RobotAndKid {x :: Int, y :: Int, typ :: String}  -- rk     
+                | CorralAndKidAndRobotRelease {x :: Int, y :: Int, typ :: String}  -- ckrr
+                | RobotAndDirt {x :: Int, y :: Int, typ :: String}  -- rd
+                | RobotAndKidAndDirt {x :: Int, y :: Int, typ :: String} -- rkd
+\end{lstlisting}
+
+Cada constructor de \code{BoardObject} representará uno de los posibles objetos que pueden estar en una casilla durante un turno. A \code{x} y \code{y} se le asocian las coordenadas de cada objeto y el string \code{typ} tendrá un string único para cada tipo (comentado al final de cada línea).\\
+
+Los números aleatorios son generados mediante la función \code{randomRIO :: (Random a, Control.Monad.IO.Class.MonadIO m) => (a, a) -> m a}, importada de System.Random. Esta función retorna un $IO Int$ por tanto, teniendo en cuenta la pureza de las funciones de haskell, cualquier función que involucre un random deberá estar contenida en un $do$.
+
+Es importante destacar que cualquier función que afecte la situación del tablero, recibirá al mismo como parámetro, creará un tablero nuevo y lo retornará. Durante cada turno (cada iteración del ciclo principal), se mueve a cada robot y se crea un tablero nuevo con los resultados de estos movimientos. De ser turno de cambio aleatorio, también se crea nuevo tablero con los cambios hechos por los niños.\\
+
+El ciclo principal se ejecuta en la función \code{mainLoop :: Int -> Int -> Board -> IO ()}. En cada iteración se realiza primero las acciones de los agentes mediante la función \code{moveRobots :: [(Int, Int)] -> Board -> Board} que recibe. Luego, en dependencia de si se alcanzó un turno de movimiento del ambiente, se mueve a los niños con \code{moveKids :: [(Int, Int)] -> [[BoardObject]] -> [(Int, Int)] -> [String] -> IO ([[BoardObject]], [(Int, Int)], [String])} y se reinicia el contador de turnos, o se sigue hacia la siguiente iteración con el contador disminuido en uno.\\
+
+En \code{moveKids} se iterará por la lista de niños (lista que tiene a todo aquel que no haya sido encerrado en un corral o atrapado por un robot) y actualizará el tablero con el movimiento de cada uno y su respectiva generación de suciedad. En \code{moveKid} se tratará siempre de mover a los niños a su alrededor de forma aleatoria. Su intento de movimiento puede tener como objetivo cualquiera de las 9 casillas pertenecientes a la cuadrícula de 3x3 centrada en dicho niño (incluyendo la central que implicará no moverse). Para esto se generan dos enteros random entre -1 y 1 y se suman a la posición actual, el resultado será la posición objetivo. De resultar como objetivo una posición que sale de los límites del tablero se tomará como no movimiento, de lo contrario se invocará a \code{tryMoveKid}. Esta última función hará algo de lo siguiente en dependencia del tipo de la casilla objetivo.\\
+1- Si es una casilla vacía, se sustituye a esta por una casilla de tipo Kid, mientras que la casilla desde la que se mueve pasará a estar ocupada por un Empty.\\
+2- Si es una casilla de tipo Obstáculo, se invocará a \code{tryPush} para tratar de mover a dicho obstáculo en la dirección del movimiento (y a todos los obstáculos que estén en esa dirección). Si es posible mover el obstáculo, la casilla objetivo se sustituye por un objeto kid, la casilla desde la que se mueve tendrá un Empty y la primera casilla vacía en la dirección del obstáculo tendrá un tipo Object\\
+3- De no ser alguno de los casos anteriores, el niño no podrá moverse.\\
+De encontrarnos con alguno de los casos $1$ o $2$, entonces también se tratará de generar suciedad alrededor de la casilla desde la que se ha movido el niño. La función \code{checkAround} retornará n = (1, 3 o 6) en dependencia de la cantidad de niños de la cuadícula de 3x3 centrada en esta casilla. Luego \code{fillWithDirt} retornará un tablero nuevo con hasta n casillas ocupadas anteriormente por un Empty, que tendrán ahora objetos Dirt.\\
+
+La función \code{moveRobots} iterará por cada robot del tablero para llamar a \code{robotMekeDecision}. Por cada robot, primeramente se llamará a la función \code{bfs} para obtener una matriz de dimensiones similares a las del tablero, que tendrá en cada posición una tupla con la distancia y el camino más rápido desde el robot en cuestión hasta la casilla del tablero correspondiente con su índice (de no haber camino, la distancia será -1). El estado de cada robot está representado por el $typ$ correspondiente al $BoardObject$ que lo representa y se tomará una decisión en dependencia de cadatipo de estado. \\
+
+\subsection*{Agente reactivo}
+- $ro$, $ckrr/$ o $cr \Longrightarrow$ El robot está sólo en la casilla vacía o del corral  y no lleva ningún niño, o acaba de soltar (en el turno anterior) a un niño dentro del corral, por tanto se busca la tierra y el niño más sercano y, de estos, el objeto de menor distancia se convertirá en el objetivo a moverse del robot (dando prioridad a recoger niños sobre la suciedad). Una vez decidido el objetivo, se desplaza al robot hacia el primer paso de su camino más corto (o de poder caminar dos pasos y ser el caso $ckrr$, hacia el segundo).\\
+- $rk \Longrightarrow$ En este caso el robot lleva a un niño sin estar sobre una suciedad o dentro del corral. Los objetivos esta vez serán la casilla del corral más cercana o la casilla con suciedad más cercana. El objeto de menor distancia se convertirá en el objetivo de movimiento del robot (dando prioridad a alcanzar el corral). Una vez decidido el objetivo, el robot se desplaza, de ser posible, a la segunda posición del camino más corto al objetivo, y de no serlo, a la primera.\\
+- $rd$ o $ \Longrightarrow$ En este caso el robot se encuentra sobre una casilla con suciedad, ya sea que cargue o no a un niño, siempre se tomará la decisión delimpiarla, y por tanto, la casilla objetivo será la misma casilla actual.\\
+- $ckr \Longrightarrow$ El robot lleva a un niño y está en una casilla del corral. en este caso se invoca a \code{searchForTargetCorral} para encontrar cuál es la casilla del corral con menos espacios libres alrededor (la que esté más rodeada de bordes del tablero, casillas del corral con niños u obstáculos) y se convertirá esta en el objetivo del robot. De esta forma se evita llenar de niños el corral de forma que no se pueda eventualmente acceder a las casillas centrales. En caso de ser la casilla objetivo igual a la casilla actual, significa que se soltará al niño. De lo contrario se intenta avanzar dos o una posición en dependencia del camino más cercano.\\
+
+\subsection*{Agente proactivo}
+- $ro$, $ckrr/$ o $cr \Longrightarrow$ El robot está sólo en la casilla vacía o del corral  y no lleva ningún niño, o acaba de soltar (en el turno anterior) a un niño dentro del corral, por tanto se buscará al niño más cercano y se pondrá su posición como objetivo. De ser -1 la distancia al niño más cercano, significará que o bien todos los niños han sido capturados, o que no hay acceso a los restantes; en este caso se pone como objetivo la suciedad más cercana. Una vez decidido el objetivo, se desplaza al robot hacia el primer paso de su camino más corto (o de poder caminar dos pasos y ser el caso $ckrr$, hacia el segundo).\\
+- $rk \Longrightarrow$ En este caso el robot lleva a un niño sin estar sobre una suciedad o dentro del corral. El objetivo esta ocasión será la casilla del corral más cercano. De ser -1 la distancia a la casilla de corral más cercana, significará que o bien todo el corral ha sido llenado, o que ha quedado fuera de alcance y en este caso se desplazará hacia la tierra más cercana. Una vez decidido el objetivo, el robot se desplaza, de ser posible, a la segunda posición del camino más corto al objetivo, y de no serlo, a la primera.\\
+- $rd$ o $ \Longrightarrow$ En este caso el robot se encuentra sobre una casilla con suciedad, ya sea que cargue o no a un niño, siempre se tomará la decisión delimpiarla ya que sería un desperdicio de tiempo no hacerlo, y por tanto, la casilla objetivo será la misma casilla actual.\\
+- $ckr \Longrightarrow$ El robot lleva a un niño y está en una casilla del corral. en este caso se invoca a \code{searchForTargetCorral} para encontrar cuál es la casilla del corral con menos espacios libres alrededor (la que esté más rodeada de bordes del tablero, casillas del corral con niños u obstáculos) y se convertirá esta en el objetivo del robot. De esta forma se evita llenar de niños el corral de forma que no se pueda eventualmente acceder a las casillas centrales. En caso de ser la casilla objetivo igual a la casilla actual, significa que se soltará al niño. De lo contrario se intenta avanzar dos o una posición en dependencia del camino más cercano.\\
+
+En cualquier ocasión que no se encuentre objetivo de desplazamiento, el robot decidirá quedarse quieto. Una vez decidida la casilla objetivo, la función \code{updateTypes} retornará los tipos que resultan del movimiento (el de la casilla objetivo y el de la casilla desde donde se mueve el robot, note que pueden ser los mismos si el robot decide no desplazarse por falta de objetivo o para limpiar suciedad o dejar a un niño) para ser puestos en el tablero nuevo que se retornará.
+
+\section*{Modelos de agentes considerados}
+Los modelos de agentes que fueron considerados para la solución del priblema fueron el reactivo y el pro-activo
+Para la solución del problema se consideraron dos modelos de agente, el reactivo y el pro-activo.\\
+El agente pro-activo debe ser capaz de tomar la iniciativa para lograr sus objetivos y de mostrar un comportamiento dirigido a estos. Para nuestro problema, el comportamiento de los niños (capaces de dejar suciedad) entorpecen al robot a la hora de cumplir con sus objetivos. Por tanto, el robot tendría un comportamiento centrado en dejar primero a todos los niños en sus corrales para luego dirigirse a limpiar las casillas con suciedad. Este comportamiento se mantendría hasta el cumplimiento de la meta de ocupar todos los corrales con niños, siempre que no ocurra la condición de parada de la simulación en la que la suciedad alcance antes la mayoría.\\
+El agente reactivo, por el conrario, es capaz de analizar el ambiente y tomar decisiones óptimas de frente a los cambios que ocurren en este. En cada turno, el agente toma decisiones de acuerdo a su estado y a las casillas a su alrededor. Puede, de no llevar niño en ese momento, decidir si cargar a un niño o en cambio dirigirse a limpiar una casilla más próxima. O en cambio, si lleva un niño, puede decidir si moverse inmediatamente hacia el corral o si posponer esta tarea para primeramente limpiar una suciedad. Por supuesto, siempre se da prioridad a las tareas de recolección de niños, pues mientras más de llos haya sueltos, más se ensuciará el ambiente, lo cual resulta contraproducente Este agente se adapta mejor a las variaciones del ambiente pues en cada turno analiza el mismo y toma una decisión independiente.
+
+\section*{ Consideraciones obtenidas a partir de la ejecución de las simulaciones del problema}
+Podemos llegar a la conclusión de que el agente reactivo logra representar una mejor solución al problema. Este se puede adaptar mejor al ambiente y las decisiones que toma, en su mayoría, llegan a ser las más óptimas. Es cierto que la tarea más importante es la de guardar a los niños, pero si de tener una suciedad cerca y un niño lejos (o cargar a un niño y tener lejos al corral), resultaría un desperdicio de tiempo no pasar primero por la suciedad para eliminarla.
+En dependencia de la cantidad de niños y de su velocidad de acción, es posible que se llene el tablero antes de lograr guardar a los niños con el agente pro-activo. En cambio, el reactivo puede demorarse más en lograr la limpieza, pero mantiene el ambiente más controlado y corre menos riesgo de fallo.
 
 
 

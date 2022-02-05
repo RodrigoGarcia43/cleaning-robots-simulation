@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.23 (MiKTeX 21.8) (preloaded format=pdflatex 2021.10.6)  4 FEB 2022 08:17
+This is pdfTeX, Version 3.141592653-2.6-1.40.23 (MiKTeX 21.8) (preloaded format=pdflatex 2021.10.6)  5 FEB 2022 03:05
 entering extended mode
 **./Informe.tex
 (Informe.tex
@@ -392,13 +392,13 @@ File: epstopdf-sys.cfg 2021/03/18 v2.0 Configuration of epstopdf for MiKTeX
 )) [1
 
 {C:/Users/Rodrigo/AppData/Local/MiKTeX/pdftex/config/pdftex.map}]
-LaTeX Font Info:    Trying to load font information for U+msa on input line 68.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 70.
 
 
 (C:\Users\Rodrigo\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 68.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 70.
 
 
 (C:\Users\Rodrigo\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
@@ -407,18 +407,13 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
  been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.79 
-      [1] [2]
-Underfull \hbox (badness 10000) in paragraph at lines 104--105
+l.81 
+      [1]
+Underfull \hbox (badness 10000) in paragraph at lines 95--96
 
  []
 
-
-Underfull \hbox (badness 10000) in paragraph at lines 106--107
-
- []
-
-
+[2]
 Underfull \hbox (badness 10000) in paragraph at lines 108--109
 
  []
@@ -478,18 +473,75 @@ Underfull \hbox (badness 10000) in paragraph at lines 130--131
 
  []
 
-[3] [4] (Informe.aux)
+
+Underfull \hbox (badness 10000) in paragraph at lines 132--133
+
+ []
+
+[3]
+Underfull \hbox (badness 10000) in paragraph at lines 134--135
+
+ []
+
+[4]
+Underfull \hbox (badness 10000) in paragraph at lines 171--172
+
+ []
+
+
+Overfull \hbox (9.78328pt too wide) in paragraph at lines 173--174
+\OT1/cmtt/m/n/12 (Random a, Control.Monad.IO.Class.MonadIO m) => (a, a) -> m a\
+OT1/cmr/m/n/12 , im-
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 175--176
+
+ []
+
+
+Overfull \hbox (79.30023pt too wide) in paragraph at lines 177--178
+\OT1/cmtt/m/n/12 Int)] -> [[BoardObject]] -> [(Int, Int)] -> [String] -> IO ([[
+BoardObject]],
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 177--178
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 179--184
+
+ []
+
+[5]
+Underfull \hbox (badness 10000) in paragraph at lines 185--186
+
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 188--192
+
+ []
+
+[6]
+Underfull \hbox (badness 10000) in paragraph at lines 194--198
+
+ []
+
+[7] [8] [9] (Informe.aux)
 Package rerunfilecheck Info: File `Informe.out' has not changed.
 (rerunfilecheck)             Checksum: D41D8CD98F00B204E9800998ECF8427E;0.
  ) 
 Here is how much of TeX's memory you used:
- 11227 strings out of 478927
- 162177 string characters out of 2851587
- 646160 words of memory out of 3000000
- 28928 multiletter control sequences out of 15000+600000
+ 11284 strings out of 478927
+ 162892 string characters out of 2851587
+ 719160 words of memory out of 3000000
+ 28954 multiletter control sequences out of 15000+600000
  410529 words of font info for 54 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 60i,6n,66p,1272b,1868s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 60i,6n,66p,1272b,1872s stack positions out of 5000i,500n,10000p,200000b,80000s
 <C:/Users/Rodrigo/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/c
 m/cmbx12.pfb><C:/Users/Rodrigo/AppData/Local/Programs/MiKTeX/fonts/type1/public
 /amsfonts/cm/cmmi12.pfb><C:/Users/Rodrigo/AppData/Local/Programs/MiKTeX/fonts/t
@@ -497,9 +549,9 @@ ype1/public/amsfonts/cm/cmr12.pfb><C:/Users/Rodrigo/AppData/Local/Programs/MiKT
 eX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/Rodrigo/AppData/Local/Pr
 ograms/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pfb><C:/Users/Rodrigo/AppDa
 ta/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on Informe.pdf (5 pages, 91117 bytes).
+Output written on Informe.pdf (10 pages, 121132 bytes).
 PDF statistics:
- 75 PDF objects out of 1000 (max. 8388607)
- 20 named destinations out of 1000 (max. 500000)
+ 130 PDF objects out of 1000 (max. 8388607)
+ 51 named destinations out of 1000 (max. 500000)
  1 words of extra memory for PDF output out of 10000 (max. 10000000)
 

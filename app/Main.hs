@@ -12,13 +12,17 @@ main = do
     print "insert number of iterations to chagne enviroment"
     n_ <- getLine
     let n = read n_ :: Int
-    putStr "\n\n"
-    initial_board <- selectInitialBoard b
-    mainLoop n 1 initial_board
+    print "insert agent type (reactive or pro-active)"
+    agent <- getLine
+    if agent /= "reactive" && agent /= "pro-active" then print "Incorrect agent" 
+    else do
+        putStr "\n\n"
+        initial_board <- selectInitialBoard b
+        mainLoop n 1 agent initial_board
 
-mainLoop :: Int -> Int -> Board -> IO ()
-mainLoop max n board = do
-    let updated_board = moveRobots (robots board) board
+mainLoop :: Int -> Int -> String -> Board -> IO ()
+mainLoop max n agent board = do
+    let updated_board = moveRobots agent (robots board) board
     
     if n == max
         then do
@@ -42,7 +46,7 @@ mainLoop max n board = do
                 else do 
                     let condition = checkForStop new_board
                     if condition == "continue" then do
-                        mainLoop max n new_board
+                        mainLoop max n agent new_board
                         else print condition
         else do
             let new_n = n + 1
@@ -54,7 +58,7 @@ mainLoop max n board = do
                 else do
                     let condition = checkForStop updated_board
                     if condition == "continue" then do
-                        mainLoop max new_n updated_board
+                        mainLoop max new_n agent updated_board
                         else print condition
 
 randomGen:: Int -> Int -> IO Int
@@ -229,11 +233,11 @@ inspectRow x y t row matches =
 -- ===========================================================================================================
 -- In this section are the functions made to move the agents
     
-moveRobots :: [(Int, Int)] -> Board -> Board
-moveRobots [] board = board
-moveRobots ((x,y):left_robots) board = let
+moveRobots :: String -> [(Int, Int)] -> Board -> Board
+moveRobots agent [] board = board
+moveRobots agent ((x,y):left_robots) board = let
     ty = typ ((b board !! x) !! y)
-    new_b = robotMakeDecision (x,y) ty board
+    new_b = robotMakeDecision agent (x,y) ty board
     dirts = inspectBoard (w board -1) (h board -1) "di" new_b [] ++ 
                 inspectBoard (w board -1) (h board -1) "rd" new_b [] ++
                 inspectBoard (w board -1) (h board -1) "rkd" new_b []
@@ -253,10 +257,11 @@ moveRobots ((x,y):left_robots) board = let
     new_board = Board {b=new_b, corrals=corrals board, kids=kids, robots=robots, dirts=dirts, obstacles=obstacles, w=w board, h=h board}
     
     in
-        moveRobots left_robots new_board
+        moveRobots agent left_robots new_board
 
-robotMakeDecision :: (Int,Int) -> String -> Board -> [[BoardObject]]
-robotMakeDecision (x,y) ty board = 
+robotMakeDecision :: String -> (Int,Int) -> String -> Board -> [[BoardObject]]
+robotMakeDecision agent (x,y) ty board 
+    | agent == "reactive" = 
     let
         distances = bfs (x,y) [(0,[],(x,y))] (b board) (replicate (h board) (replicate (w board) (-1, [])))
     
@@ -331,6 +336,83 @@ robotMakeDecision (x,y) ty board =
 
     in
         new_board_2
+    | agent == "pro-active" = 
+    let
+        distances = bfs (x,y) [(0,[],(x,y))] (b board) (replicate (h board) (replicate (w board) (-1, [])))
+    
+        (to_x, to_y) = case ty of
+            "ro" ->
+                let 
+                    (nearest_kid_distance, nearest_kid_path) = searchForNearestRestricted "ki" (kids board) distances (b board) (-1, [])
+                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
+
+                in 
+                    if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
+                        then (x,y)
+                        else
+                            if nearest_kid_distance /= -1
+                                then nearest_kid_path !! 1
+                                else nearest_dirt_path !! 1            
+
+            "rk" -> let
+                (nearest_corral_distance, nearest_corral_path) = searchForNearestRestricted "ec" (corrals board) distances (b board) (-1, [])
+                (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
+                in 
+                    if nearest_corral_distance == (-1) && nearest_dirt_distance == (-1)
+                        then (x,y)
+                        else
+                            if nearest_corral_distance /= -1
+                                then if length nearest_corral_path > 2 then nearest_corral_path !! 2 else nearest_corral_path !! 1
+                                else if length nearest_dirt_path > 2 then nearest_dirt_path !! 2 else nearest_dirt_path !! 1  
+
+            "rd" -> (x,y)
+
+            "rkd" -> (x,y)
+
+            "cr" ->
+                let 
+                    (nearest_kid_distance, nearest_kid_path) = searchForNearestRestricted "ki" (kids board) distances (b board) (-1, [])
+                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
+
+                in 
+                    if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
+                        then (x,y)
+                        else
+                            if nearest_kid_distance /= -1 
+                                then nearest_kid_path !! 1
+                                else nearest_dirt_path !! 1    
+
+            "ckr" -> let
+                (target_n, (target_x, target_y)) = searchForTargetCorral (x,y) (corrals board) (b board) (8, (-1,-1))
+                (corral_distance, corral_path) = (distances !! target_x) !! target_y
+                
+                in
+                    if corral_distance == -1 || corral_distance == 0
+                        then (x,y)
+                        else if length corral_path > 2 then corral_path !! 2 else corral_path !! 1
+
+            "ckrr" ->
+                let 
+                    (nearest_kid_distance, nearest_kid_path) = searchForNearestRestricted "ki" (kids board) distances (b board) (-1, [])
+                    (nearest_dirt_distance, nearest_dirt_path) = searchForNearestRestricted "di" (dirts board) distances (b board) (-1, [])
+
+                in 
+                    if nearest_kid_distance == (-1) && nearest_dirt_distance == (-1)
+                        then (x,y)
+                        else
+                            if nearest_kid_distance /= -1 
+                                then if length nearest_kid_path > 2 then nearest_kid_path !! 2 else nearest_kid_path !! 1
+                                else if length nearest_dirt_path > 2 then nearest_dirt_path !! 2 else nearest_dirt_path !! 1     
+            _ -> (x,y)
+
+        (from_object, to_object) = updateTypes (x,y) (to_x, to_y) (b board)
+        new_board_1 = replaceAtPosition x y from_object (b board)
+        new_board_2 = replaceAtPosition to_x to_y to_object new_board_1
+
+    in
+        new_board_2
+
+    | otherwise = b board
 
 updateTypes :: (Int, Int) -> (Int, Int) -> [[BoardObject]] -> (BoardObject, BoardObject)
 updateTypes (from_x, from_y) (to_x, to_y) board =
@@ -544,6 +626,7 @@ data BoardObject = Empty {x :: Int, y :: Int, typ :: String}  -- em
                 | CorralAndKidAndRobotRelease {x :: Int, y :: Int, typ :: String}  -- ckrr
                 | RobotAndDirt {x :: Int, y :: Int, typ :: String}  -- rd
                 | RobotAndKidAndDirt {x :: Int, y :: Int, typ :: String} -- rkd
+                deriving (Eq)
 
 
 
